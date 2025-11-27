@@ -1,0 +1,40 @@
+name: Track Followers
+
+on:
+  schedule:
+    # 매 6시간마다 실행 (UTC 기준 0, 6, 12, 18시)
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # 수동 실행 가능
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Track followers
+        id: track
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          GITHUB_USERNAME: ${{ vars.USERNAME }}
+          CREATE_ISSUE: 'true'
+        run: node scripts/track-followers.js
+
+      - name: Commit changes
+        if: steps.track.outputs.has_changes == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data/followers.json
+          git diff --staged --quiet || git commit -m "Update followers data"
+          git push
